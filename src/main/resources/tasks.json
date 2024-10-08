@@ -1,0 +1,18 @@
+[
+  {
+    "name": "Buy groceries",
+    "description": "Milk, Eggs, Bread",
+    "priority": "Medium",
+    "completed": false,
+    "dueDate": "2024-10-10",
+    "comments": []
+  },
+  {
+    "name": "Finish project",
+    "description": "Complete the JavaFX project",
+    "priority": "High",
+    "completed": true,
+    "dueDate": "2024-10-15",
+    "comments": ["Initial draft complete"]
+  }
+]

@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns:fx="http://javafx.com/fxml" fx:controller="github.hitman20081.todomanager.PrimaryController" spacing="10">
+    <children>
+        <Label text="To-Do Manager" />
+
+        <Label text="Task Name:" />
+        <TextField fx:id="nameInput" />
+
+        <Label text="Description:" />
+        <TextField fx:id="descriptionInput" />
+
+        <Label text="Priority:" />
+        <TextField fx:id="priorityInput" />
+
+        <Label text="Due Date (YYYY-MM-DD):" />
+        <TextField fx:id="dueDateInput" />
+
+        <HBox spacing="10">
+            <Button text="Add Task" onAction="#addTask"/>
+            <Button text="Edit Task" onAction="#editTask"/>
+            <Button text="Delete Task" onAction="#deleteTask"/>
+            <Button text="Mark as Completed" onAction="#markTaskAsCompleted"/>
+        </HBox>
+
+        <Label text="Comments:" />
+        <TextField fx:id="commentInput" promptText="Add a comment..."/>
+        <Button text="Add Comment" onAction="#addComment"/>
+
+        <ListView fx:id="taskListView" prefHeight="200.0" VBox.vgrow="ALWAYS"/>
+        <ListView fx:id="taskHistoryListView" layoutX="300" layoutY="50" prefHeight="400" prefWidth="200"/>
+
+        <Label text="Filter Tasks:" />
+        <TextField fx:id="filterInput" onKeyReleased="#filterTasks" />
+
+        <HBox spacing="10">
+            <Button text="Sort by Due Date" onAction="#sortByDueDate"/>
+            <Button text="Sort by Priority" onAction="#sortByPriority"/>
+        </HBox>
+        <HBox spacing="10">
+            <Button text="Save Tasks" onAction="#saveTasks"/>
+            <Button text="Load Tasks" onAction="#loadTasks"/>
+            <Button fx:id="backupButton" text="Backup Tasks" onAction="#backupTasks" />
+            <Button fx:id="restoreButton" text="Restore Tasks" onAction="#restoreTasks" />
+            <Button text="Export Tasks" onAction="#exportTasks"/>
+            <Button text="Import Tasks" onAction="#importTasks"/> <!-- Ensure this line is added -->
+        </HBox>
+    </children>
+</VBox>
