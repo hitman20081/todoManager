@@ -1,0 +1,7 @@
+.notification-area {
+    padding: 10px;
+    background-color: #f8d7da; /* Light red background */
+    border: 1px solid #f5c6cb; /* Border color */
+    -fx-background-radius: 5px; /* Rounded corners */
+    -fx-padding: 10; /* Padding inside the area */
+}

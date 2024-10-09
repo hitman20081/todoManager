@@ -1,5 +1,6 @@
 package github.hitman20081.todomanager;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -8,6 +9,16 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Task {
+
+    public enum Priority {
+        HIGH, MEDIUM, LOW; // Enum for task priority
+
+        @JsonCreator
+        public static Priority fromString(String key) {
+            return key == null ? null : Priority.valueOf(key.toUpperCase());
+        }
+    }
+
     @JsonProperty("name")
     private String name;
 
@@ -15,7 +26,7 @@ public class Task {
     private String description;
 
     @JsonProperty("priority")
-    private String priority;
+    private Priority priority; // Change to Priority enum
 
     @JsonProperty("completed")
     private boolean completed;
@@ -31,12 +42,34 @@ public class Task {
     public Task() {
     }
 
-    public Task(String name, String description, String priority, LocalDate dueDate) {
+    // Constructor with validation
+    public Task(String name, String description, Priority priority, LocalDate dueDate) {
+        if (name == null || name.trim().isEmpty()) {
+            throw new IllegalArgumentException("Task name cannot be null or empty");
+        }
+        if (priority == null) {
+            throw new IllegalArgumentException("Task priority cannot be null");
+        }
         this.name = name;
         this.description = description;
         this.priority = priority;
         this.dueDate = dueDate;
         this.completed = false;
+    }
+
+    // New constructor to handle 'completed' field
+    public Task(String name, String description, Priority priority, LocalDate dueDate, boolean completed) {
+        if (name == null || name.trim().isEmpty()) {
+            throw new IllegalArgumentException("Task name cannot be null or empty");
+        }
+        if (priority == null) {
+            throw new IllegalArgumentException("Task priority cannot be null");
+        }
+        this.name = name;
+        this.description = description;
+        this.priority = priority;
+        this.dueDate = dueDate;
+        this.completed = completed;
     }
 
     // Getters and Setters
@@ -56,11 +89,11 @@ public class Task {
         this.description = description;
     }
 
-    public String getPriority() {
-        return priority;
+    public Priority getPriority() {
+        return priority; // Return Priority enum
     }
 
-    public void setPriority(String priority) {
+    public void setPriority(Priority priority) {
         this.priority = priority;
     }
 
@@ -86,13 +119,26 @@ public class Task {
     }
 
     public void addComment(String comment) {
-        comments.add(comment); // Add a new comment to the list
+        if (comment != null && !comment.trim().isEmpty()) {
+            comments.add(comment); // Add a new comment to the list
+        } else {
+            System.out.println("Comment cannot be empty.");
+        }
+    }
+
+    public void removeComment(String comment) {
+        comments.remove(comment);
+    }
+
+    public void clearComments() {
+        comments.clear();
     }
 
     @Override
     public String toString() {
-        return name + " (" + priority + ")" + (completed ? " [Completed]" : "") +
+        return name + " (" + priority + ")" +
+                (completed ? " [Completed]" : "") +
                 (dueDate != null ? " [Due: " + dueDate + "]" : "") +
-                (!comments.isEmpty() ? " [Comments: " + String.join(", ", comments) + "]" : ""); // Display comments
+                (!comments.isEmpty() ? " [Comments: " + String.join("; ", comments) + "]" : ""); // Display comments
     }
 }

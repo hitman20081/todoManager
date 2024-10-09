@@ -1,7 +1,7 @@
 [
   {
-    "name": "Buy groceries",
-    "description": "Milk, Eggs, Bread",
+    "name": "Write Coding for MOD",
+    "description": "Write New coding for mods on the server",
     "priority": "Medium",
     "completed": false,
     "dueDate": "2024-10-10",
@@ -11,8 +11,8 @@
     "name": "Finish project",
     "description": "Complete the JavaFX project",
     "priority": "High",
-    "completed": true,
-    "dueDate": "2024-10-15",
+    "completed": false,
+    "dueDate": "2024-10-25",
     "comments": ["Initial draft complete"]
   }
 ]

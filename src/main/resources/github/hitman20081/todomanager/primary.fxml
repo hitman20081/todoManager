@@ -3,9 +3,10 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 
-<VBox xmlns:fx="http://javafx.com/fxml" fx:controller="github.hitman20081.todomanager.PrimaryController" spacing="10">
+<VBox xmlns:fx="http://javafx.com/fxml" fx:controller="github.hitman20081.todomanager.PrimaryController" spacing="10"
+      style="-fx-padding: 20; -fx-border-color: black; -fx-border-width: 2; -fx-border-radius: 5; -fx-background-radius: 5;">
     <children>
-        <Label text="To-Do Manager" />
+        <Label text="To-Do Manager" style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
 
         <Label text="Task Name:" />
         <TextField fx:id="nameInput" />
@@ -16,37 +17,45 @@
         <Label text="Priority:" />
         <TextField fx:id="priorityInput" />
 
-        <Label text="Due Date (YYYY-MM-DD):" />
-        <TextField fx:id="dueDateInput" />
+        <HBox spacing="10">
+            <Label text="Due Date:" />
+            <DatePicker fx:id="dueDatePicker" />
+        </HBox>
 
         <HBox spacing="10">
-            <Button text="Add Task" onAction="#addTask"/>
-            <Button text="Edit Task" onAction="#editTask"/>
-            <Button text="Delete Task" onAction="#deleteTask"/>
-            <Button text="Mark as Completed" onAction="#markTaskAsCompleted"/>
+            <Button text="Add Task" onAction="#addTask" prefWidth="120"/>
+            <Button text="Edit Task" onAction="#editTask" prefWidth="120"/>
+            <Button text="Delete Task" onAction="#deleteTask" prefWidth="120"/>
+            <Button text="Mark as Completed" onAction="#markTaskAsCompleted" prefWidth="120"/>
         </HBox>
 
         <Label text="Comments:" />
-        <TextField fx:id="commentInput" promptText="Add a comment..."/>
-        <Button text="Add Comment" onAction="#addComment"/>
+        <TextField fx:id="commentInput" promptText="Enter a comment" />
+        <Button text="Add Comment" onAction="#addCommentToTask"/>
 
         <ListView fx:id="taskListView" prefHeight="200.0" VBox.vgrow="ALWAYS"/>
-        <ListView fx:id="taskHistoryListView" layoutX="300" layoutY="50" prefHeight="400" prefWidth="200"/>
+        <ListView fx:id="taskHistoryListView" prefHeight="200.0" VBox.vgrow="ALWAYS"/>
 
         <Label text="Filter Tasks:" />
         <TextField fx:id="filterInput" onKeyReleased="#filterTasks" />
 
         <HBox spacing="10">
-            <Button text="Sort by Due Date" onAction="#sortByDueDate"/>
-            <Button text="Sort by Priority" onAction="#sortByPriority"/>
+            <Button fx:id="sortByDateButton" text="Sort by Due Date" onAction="#sortTasksByDueDate" />
+            <Button fx:id="sortByPriorityButton" text="Sort by Priority" onAction="#sortByPriority" />
         </HBox>
+
         <HBox spacing="10">
-            <Button text="Save Tasks" onAction="#saveTasks"/>
-            <Button text="Load Tasks" onAction="#loadTasks"/>
-            <Button fx:id="backupButton" text="Backup Tasks" onAction="#backupTasks" />
-            <Button fx:id="restoreButton" text="Restore Tasks" onAction="#restoreTasks" />
-            <Button text="Export Tasks" onAction="#exportTasks"/>
-            <Button text="Import Tasks" onAction="#importTasks"/> <!-- Ensure this line is added -->
+            <Button text="Save Tasks" onAction="#saveTasks" prefWidth="120"/>
+            <Button text="Load Tasks" onAction="#loadTasks" prefWidth="120"/>
+            <Button fx:id="backupButton" text="Backup Tasks" onAction="#backupTasks" prefWidth="120"/>
+            <Button fx:id="restoreButton" text="Restore Tasks" onAction="#restoreTasks" prefWidth="120"/>
+            <Button text="Export Files" onAction="#exportTasks" prefWidth="120"/>
+            <Button text="Import Files" onAction="#importTasks" prefWidth="120"/>
         </HBox>
+        <HBox fx:id="notificationArea" spacing="10" visible="false">
+            <Label fx:id="notificationLabel" text="Notifications will appear here." />
+        </HBox>
+
     </children>
 </VBox>
+

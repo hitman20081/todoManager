@@ -4,6 +4,11 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import javafx.fxml.FXML;
+import javafx.scene.control.Label; // Import for Label
+import javafx.scene.layout.HBox; // Import for HBox
+import javafx.animation.PauseTransition; // Import for PauseTransition
+import javafx.util.Duration; // Import for Duration
+import javafx.scene.control.DatePicker;
 import javafx.scene.control.ListView;
 import javafx.scene.control.TextField;
 import javafx.stage.DirectoryChooser;
@@ -11,11 +16,11 @@ import javafx.stage.FileChooser;
 
 import java.io.*;
 import java.time.LocalDate;
-import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.Comparator;
+import javafx.event.ActionEvent;
 
 public class PrimaryController {
     @FXML
@@ -25,42 +30,61 @@ public class PrimaryController {
     @FXML
     private TextField priorityInput;
     @FXML
-    private TextField dueDateInput; // Format: YYYY-MM-DD
+    private DatePicker dueDatePicker;
     @FXML
-    private TextField filterInput; // Filter input field
+    private TextField filterInput;
     @FXML
     private ListView<Task> taskListView;
     @FXML
-    private ListView<TaskHistory> taskHistoryListView; // Task history ListView
+    private ListView<TaskHistory> taskHistoryListView;
     @FXML
-    private TextField commentInput; // Comment input field
+    private TextField commentInput;
+    @FXML
+    private HBox notificationArea; // Reference to the notification area
+    @FXML
+    private Label notificationLabel; // Reference to the notification label
 
     private final List<Task> tasks = new ArrayList<>();
     private final List<TaskHistory> taskHistoryList = new ArrayList<>();
-    private Task selectedTask; // Currently selected task
-    private boolean isEditing = false; // Editing mode flag
-
-    // Initialize ObjectMapper with JavaTimeModule
+    private Task selectedTask;
+    private boolean isEditing = false;
     private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
+    private boolean ascending = true; // Track sorting direction
+    private String currentSortType = "dueDate"; // Track the current sort type
 
     @FXML
     public void initialize() {
-        loadTasks(); // Load tasks when the controller is initialized
-        loadTaskHistory(); // Load task history when the controller is initialized
-        taskListView.getItems().clear(); // Clear the ListView first
+        loadTasks();
+        loadTaskHistory();
+        taskListView.getItems().clear();
+
+        // Show the welcome notification
+        notificationLabel.setText("Welcome to the Task Manager!");
+        showNotification("Welcome to To-Do Manager!");
     }
 
     @FXML
     public void addTask() {
         String name = nameInput.getText();
         String description = descriptionInput.getText();
-        String priority = priorityInput.getText();
-        LocalDate dueDate = parseDueDate();
+        String priorityString = priorityInput.getText(); // Changed to priorityString
+        LocalDate dueDate = dueDatePicker.getValue();
 
+        // Validate input
         if (dueDate == null) {
-            return; // Exit if due date is invalid
+            System.out.println("Please select a valid due date.");
+            return;
         }
 
+        Task.Priority priority; // Declare priority
+        try {
+            priority = Task.Priority.valueOf(priorityString.toUpperCase()); // Convert input to Priority enum
+        } catch (IllegalArgumentException e) {
+            System.out.println("Invalid priority value. Please use a valid priority.");
+            return;
+        }
+
+        // Handle editing or creating a new task
         if (isEditing) {
             updateSelectedTask(name, description, priority, dueDate);
         } else {
@@ -68,7 +92,7 @@ public class PrimaryController {
         }
 
         clearInputs();
-        taskListView.getSelectionModel().clearSelection(); // Deselect current task
+        taskListView.getSelectionModel().clearSelection();
         saveTasks(); // Save tasks after adding or editing
     }
 
@@ -76,11 +100,11 @@ public class PrimaryController {
     public void deleteTask() {
         Task selectedTask = taskListView.getSelectionModel().getSelectedItem();
         if (selectedTask != null) {
-            addToTaskHistory(selectedTask, null); // Add to task history before deletion
+            addToTaskHistory(selectedTask, null);
             tasks.remove(selectedTask);
-            taskListView.getItems().remove(selectedTask);
-            saveTasks(); // Save current tasks
-            saveTaskHistory(); // Save task history
+            updateTaskListView(); // Update the ListView
+            saveTasks();
+            saveTaskHistory();
         }
     }
 
@@ -89,7 +113,20 @@ public class PrimaryController {
         selectedTask = taskListView.getSelectionModel().getSelectedItem();
         if (selectedTask != null) {
             populateInputFields(selectedTask);
-            isEditing = true; // Set editing mode
+            isEditing = true;
+        }
+    }
+
+    @FXML
+    public void addCommentToTask() {
+        String comment = commentInput.getText();
+        Task selectedTask = taskListView.getSelectionModel().getSelectedItem();
+        if (selectedTask != null && comment != null && !comment.trim().isEmpty()) {
+            selectedTask.getComments().add(comment); // Assuming getComments() returns a List<String>
+            commentInput.clear(); // Clear the comment input after adding
+            // Optionally refresh the UI or display a message
+        } else {
+            System.out.println("Please select a task and enter a comment.");
         }
     }
 
@@ -97,11 +134,11 @@ public class PrimaryController {
     public void markTaskAsCompleted() {
         Task selectedTask = taskListView.getSelectionModel().getSelectedItem();
         if (selectedTask != null) {
-            addToTaskHistory(selectedTask, LocalDate.now()); // Record the completion date
+            addToTaskHistory(selectedTask, LocalDate.now());
             selectedTask.setCompleted(true);
-            taskListView.refresh(); // Refresh the ListView to show updated task
-            saveTasks(); // Save current tasks
-            saveTaskHistory(); // Save task history
+            taskListView.refresh();
+            saveTasks();
+            saveTaskHistory();
         }
     }
 
@@ -111,11 +148,57 @@ public class PrimaryController {
         List<Task> filteredTasks = tasks.stream()
                 .filter(task -> task.getName().toLowerCase().contains(filter) ||
                         task.getDescription().toLowerCase().contains(filter) ||
-                        task.getPriority().toLowerCase().contains(filter))
+                        task.getPriority().toString().toLowerCase().contains(filter)) // Change toString() for filtering
                 .collect(Collectors.toList());
 
         taskListView.getItems().clear();
         taskListView.getItems().addAll(filteredTasks);
+    }
+
+    @FXML
+    public void toggleSortOrder() {
+        ascending = !ascending; // Toggle sort order
+        if (currentSortType.equals("dueDate")) {
+            sortTasksByDueDate();
+        } else {
+            sortByPriority();
+        }
+    }
+
+    @FXML
+    public void switchSortType() {
+        currentSortType = currentSortType.equals("dueDate") ? "priority" : "dueDate";
+        toggleSortOrder(); // Apply sorting with the new sort type
+    }
+
+    public void sortTasksByDueDate() {
+        tasks.sort((task1, task2) -> {
+            if (task1.getDueDate() == null && task2.getDueDate() == null) {
+                return 0; // Both are null, considered equal
+            }
+            if (task1.getDueDate() == null) {
+                return ascending ? 1 : -1; // Nulls are sorted last
+            }
+            if (task2.getDueDate() == null) {
+                return ascending ? -1 : 1; // Nulls are sorted last
+            }
+            return ascending ? task1.getDueDate().compareTo(task2.getDueDate())
+                    : task2.getDueDate().compareTo(task1.getDueDate());
+        });
+        updateTaskListView(); // Refresh the ListView to show sorted tasks
+    }
+
+    public void sortByPriority() {
+        tasks.sort(Comparator.comparing(Task::getPriority, Comparator.nullsLast(Comparator.naturalOrder())));
+        if (!ascending) {
+            // If not ascending, reverse the list
+            List<Task> reversedTasks = new ArrayList<>(tasks);
+            tasks.clear();
+            for (int i = reversedTasks.size() - 1; i >= 0; i--) {
+                tasks.add(reversedTasks.get(i));
+            }
+        }
+        updateTaskListView(); // Update the ListView after sorting
     }
 
     @FXML
@@ -151,7 +234,6 @@ public class PrimaryController {
         File selectedFile = fileChooser.showSaveDialog(null);
         if (selectedFile != null) {
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(selectedFile))) {
-                // Write header
                 writer.write("Name,Description,Priority,Due Date,Completed\n");
                 for (Task task : tasks) {
                     writer.write(String.format("%s,%s,%s,%s,%s\n",
@@ -163,7 +245,7 @@ public class PrimaryController {
                 }
                 System.out.println("Tasks exported successfully.");
             } catch (IOException e) {
-                e.printStackTrace();
+                System.err.println("Failed to export tasks: " + e.getMessage());
             }
         }
     }
@@ -178,165 +260,131 @@ public class PrimaryController {
         if (selectedFile != null) {
             try (BufferedReader reader = new BufferedReader(new FileReader(selectedFile))) {
                 String line;
-                tasks.clear(); // Clear current tasks
-                taskListView.getItems().clear(); // Clear the ListView
-
-                // Skip the header line
-                reader.readLine();
+                reader.readLine(); // Skip header
                 while ((line = reader.readLine()) != null) {
-                    String[] parts = line.split(",");
-                    if (parts.length >= 4) {
-                        String name = parts[0];
-                        String description = parts[1];
-                        String priority = parts[2];
-                        LocalDate dueDate = parts[3].isEmpty() ? null : LocalDate.parse(parts[3]);
-                        boolean completed = "Yes".equalsIgnoreCase(parts[4]);
+                    String[] data = line.split(",");
+                    Task task = new Task();
+                    task.setName(data[0]);
+                    task.setDescription(data[1]);
+                    task.setPriority(Task.Priority.valueOf(data[2].toUpperCase())); // Convert String to Priority
+                    task.setDueDate(LocalDate.parse(data[3]));
+                    task.setCompleted(data[4].equalsIgnoreCase("Yes"));
 
-                        Task task = new Task(name, description, priority, dueDate);
-                        task.setCompleted(completed);
-                        tasks.add(task);
-                        taskListView.getItems().add(task);
-                    }
+                    tasks.add(task);
+                    taskListView.getItems().add(task);
                 }
-                saveTasks(); // Optionally save imported tasks
                 System.out.println("Tasks imported successfully.");
             } catch (IOException e) {
-                e.printStackTrace();
-            } catch (DateTimeParseException e) {
-                System.out.println("Error parsing due date.");
+                System.err.println("Failed to import tasks: " + e.getMessage());
+            } catch (IllegalArgumentException e) {
+                System.err.println("Invalid priority value in imported data: " + e.getMessage());
             }
         }
     }
 
-    // Updated loadTasks method
-    @FXML
-    public void loadTasks() {
-        try (InputStream inputStream = getClass().getClassLoader().getResourceAsStream("tasks.json")) {
-            if (inputStream != null) {
-                List<Task> loadedTasks = objectMapper.readValue(inputStream, new TypeReference<List<Task>>() {});
-                tasks.clear();
-                tasks.addAll(loadedTasks);
-                taskListView.getItems().clear();
-                taskListView.getItems().addAll(tasks);
-                System.out.println("Tasks loaded from resources/tasks.json");
-            } else {
-                System.out.println("No tasks.json file found in resources.");
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    // Updated saveTasks method
-    @FXML
-    public void saveTasks() {
-        writeTasksToFile(new File("tasks.json")); // Write to the current working directory
-    }
-
-    @FXML
-    public void saveTaskHistory() {
-        writeTaskHistoryToFile(new File("task_history.json"));
-    }
-
-    @FXML
-    public void loadTaskHistory() {
-        readTaskHistoryFromFile(new File("task_history.json"));
-    }
-
-    @FXML
-    public void sortByDueDate() {
-        tasks.sort(Comparator.comparing(Task::getDueDate, Comparator.nullsLast(Comparator.naturalOrder())));
-        refreshTaskListView();
-    }
-
-    @FXML
-    public void sortByPriority() {
-        tasks.sort(Comparator.comparing(Task::getPriority));
-        refreshTaskListView();
-    }
-
-    @FXML
-    public void addComment() {
-        Task selectedTask = taskListView.getSelectionModel().getSelectedItem();
-        if (selectedTask != null) {
-            String comment = commentInput.getText();
-            if (!comment.isEmpty()) {
-                selectedTask.getComments().add(comment);
-                commentInput.clear(); // Clear input field after adding
-                taskListView.refresh(); // Refresh ListView to show updated comments
-            }
-        }
-    }
-
-    // Utility methods
-    private LocalDate parseDueDate() {
-        try {
-            return LocalDate.parse(dueDateInput.getText());
-        } catch (DateTimeParseException e) {
-            System.out.println("Invalid due date format. Please use YYYY-MM-DD.");
-            return null;
-        }
-    }
-
-    private void createNewTask(String name, String description, String priority, LocalDate dueDate) {
-        Task newTask = new Task(name, description, priority, dueDate);
+    private void createNewTask(String name, String description, Task.Priority priority, LocalDate dueDate) {
+        Task newTask = new Task();
+        newTask.setName(name); // Set the name
+        newTask.setDescription(description); // Set the description
+        newTask.setPriority(priority); // Set the priority
+        newTask.setDueDate(dueDate); // Set the due date
         tasks.add(newTask);
         taskListView.getItems().add(newTask);
-        System.out.println("Task added: " + newTask);
+        showNotification("Task added successfully.");
     }
 
-    private void updateSelectedTask(String name, String description, String priority, LocalDate dueDate) {
+    private void updateSelectedTask(String name, String description, Task.Priority priority, LocalDate dueDate) {
         selectedTask.setName(name);
         selectedTask.setDescription(description);
         selectedTask.setPriority(priority);
         selectedTask.setDueDate(dueDate);
-        taskListView.refresh(); // Refresh ListView to show updated task
-        System.out.println("Task updated: " + selectedTask);
-        isEditing = false; // Reset editing mode
+        taskListView.refresh();
+        showNotification("Task updated successfully.");
+        isEditing = false;
+    }
+
+    private void populateInputFields(Task task) {
+        nameInput.setText(task.getName());
+        descriptionInput.setText(task.getDescription());
+        priorityInput.setText(task.getPriority().toString());
+        dueDatePicker.setValue(task.getDueDate());
     }
 
     private void clearInputs() {
         nameInput.clear();
         descriptionInput.clear();
         priorityInput.clear();
-        dueDateInput.clear();
-        commentInput.clear(); // Clear comment input as well
+        dueDatePicker.setValue(null);
     }
 
-    private void populateInputFields(Task task) {
-        nameInput.setText(task.getName());
-        descriptionInput.setText(task.getDescription());
-        priorityInput.setText(task.getPriority());
-        dueDateInput.setText(task.getDueDate() != null ? task.getDueDate().toString() : "");
-    }
-
-    private void addToTaskHistory(Task task, LocalDate completionDate) {
-        // Logic for adding task to history (if needed)
-    }
-
-    private void refreshTaskListView() {
-        taskListView.getItems().clear();
-        taskListView.getItems().addAll(tasks);
+    private void showNotification(String message) {
+        notificationLabel.setText(message);
+        notificationArea.setVisible(true);
+        PauseTransition pause = new PauseTransition(Duration.seconds(3));
+        pause.setOnFinished(event -> notificationArea.setVisible(false));
+        pause.play();
     }
 
     private void writeTasksToFile(File file) {
         try {
             objectMapper.writeValue(file, tasks);
-            System.out.println("Tasks saved to " + file.getAbsolutePath());
+            System.out.println("Tasks backed up successfully.");
         } catch (IOException e) {
-            e.printStackTrace();
+            System.err.println("Failed to backup tasks: " + e.getMessage());
         }
     }
 
-    private void writeTaskHistoryToFile(File file) {
-        // Implementation for writing task history to a file
-    }
-
-    private void readTaskHistoryFromFile(File file) {
-        // Implementation for reading task history from a file
-    }
-
     private void readTasksFromFile(File file) {
-        // Implementation for reading tasks from a specified file
+        try {
+            Task[] loadedTasks = objectMapper.readValue(file, Task[].class);
+            tasks.clear();
+            for (Task task : loadedTasks) {
+                tasks.add(task);
+                taskListView.getItems().add(task);
+            }
+            System.out.println("Tasks restored successfully.");
+        } catch (IOException e) {
+            System.err.println("Failed to restore tasks: " + e.getMessage());
+        }
+    }
+    @FXML
+    private void saveTasks() {
+        // Implement the logic to save tasks to a file
+        try {
+            File file = new File("tasks.json"); // You may want to choose a specific path or use a dialog
+            objectMapper.writeValue(file, tasks);
+            System.out.println("Tasks saved successfully.");
+        } catch (IOException e) {
+            System.err.println("Failed to save tasks: " + e.getMessage());
+        }
+    }
+
+    @FXML
+    private void loadTasks() {
+        File file = new File("tasks.json");
+        if (file.exists()) {
+            readTasksFromFile(file);
+        } else {
+            System.out.println("No saved tasks found.");
+        }
+    }
+
+    private void loadTaskHistory() {
+        // Implement the logic to load task history from a file or database if necessary.
+    }
+
+    private void addToTaskHistory(Task task, LocalDate completedDate) {
+        TaskHistory taskHistory = new TaskHistory();
+        taskHistoryList.add(taskHistory);
+        taskHistoryListView.getItems().add(taskHistory);
+    }
+
+    private void saveTaskHistory() {
+        // Implement the logic to save task history to a file or database if necessary.
+    }
+
+    private void updateTaskListView() {
+        taskListView.getItems().clear();
+        taskListView.getItems().addAll(tasks);
     }
 }

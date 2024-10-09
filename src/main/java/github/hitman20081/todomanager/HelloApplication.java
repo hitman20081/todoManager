@@ -6,6 +6,8 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
 
+import java.util.Objects;
+
 public class HelloApplication extends Application {
     @Override
     public void start(Stage stage) throws Exception {
@@ -14,7 +16,7 @@ public class HelloApplication extends Application {
 
         // Set the default size for the stage
         stage.setWidth(800);  // Set the default width
-        stage.setHeight(600); // Set the default height
+        stage.setHeight(650); // Set the default height
 
         /* Optional: Set minimum and maximum sizes
         stage.setMinWidth(400);  // Set minimum width
