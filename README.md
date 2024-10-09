@@ -11,7 +11,8 @@ A simple and user-friendly To-Do List Manager that helps users keep track of the
 - Dynamic search and sorting
 
 ## Screenshots
-![Task Manager Screenshot]([path/to/screenshot.png](https://github.com/hitman20081/todoManager/blob/master/todoManagerMain.png))
+![Task Manager Screenshot](https://github.com/hitman20081/todoManager/blob/master/todoManagerMain.png)
+![Task Manager Screenshot](https://github.com/hitman20081/todoManager/blob/master/todoManagerfilled.png)
 
 ## Installation Guide
 1. Clone the repository:
