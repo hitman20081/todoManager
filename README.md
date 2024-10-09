@@ -1,5 +1,3 @@
-Here's the complete `README.md` template that you can copy and paste into your file:
-
 ```markdown
 # To-Do List Manager
 
