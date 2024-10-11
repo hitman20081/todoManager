@@ -16,14 +16,7 @@ public class HelloApplication extends Application {
 
         // Set the default size for the stage
         stage.setWidth(800);  // Set the default width
-        stage.setHeight(650); // Set the default height
-
-        /* Optional: Set minimum and maximum sizes
-        stage.setMinWidth(400);  // Set minimum width
-        stage.setMinHeight(300);  // Set minimum height
-        stage.setMaxWidth(1200);  // Set maximum width
-        stage.setMaxHeight(800);   // Set maximum height
-        */
+        stage.setHeight(550); // Set the default height
 
         // Set the scene and show the stage
         stage.setScene(scene);

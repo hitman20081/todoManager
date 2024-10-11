@@ -15,7 +15,11 @@ public class Task {
 
         @JsonCreator
         public static Priority fromString(String key) {
-            return key == null ? null : Priority.valueOf(key.toUpperCase());
+            try {
+                return key == null ? null : Priority.valueOf(key.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return MEDIUM; // Default to MEDIUM if the string doesn't match any enum values
+            }
         }
     }
 
@@ -42,23 +46,8 @@ public class Task {
     public Task() {
     }
 
-    // Constructor with validation
-    public Task(String name, String description, Priority priority, LocalDate dueDate) {
-        if (name == null || name.trim().isEmpty()) {
-            throw new IllegalArgumentException("Task name cannot be null or empty");
-        }
-        if (priority == null) {
-            throw new IllegalArgumentException("Task priority cannot be null");
-        }
-        this.name = name;
-        this.description = description;
-        this.priority = priority;
-        this.dueDate = dueDate;
-        this.completed = false;
-    }
-
     // New constructor to handle 'completed' field
-    public Task(String name, String description, Priority priority, LocalDate dueDate, boolean completed) {
+     public Task(String name, String description, Priority priority, LocalDate dueDate, boolean completed) {
         if (name == null || name.trim().isEmpty()) {
             throw new IllegalArgumentException("Task name cannot be null or empty");
         }

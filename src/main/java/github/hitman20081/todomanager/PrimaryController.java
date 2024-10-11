@@ -2,389 +2,464 @@ package github.hitman20081.todomanager;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import javafx.fxml.FXML;
-import javafx.scene.control.Label; // Import for Label
-import javafx.scene.layout.HBox; // Import for HBox
-import javafx.animation.PauseTransition; // Import for PauseTransition
-import javafx.util.Duration; // Import for Duration
-import javafx.scene.control.DatePicker;
-import javafx.scene.control.ListView;
-import javafx.scene.control.TextField;
-import javafx.stage.DirectoryChooser;
-import javafx.stage.FileChooser;
+import javafx.scene.control.TextInputDialog;
 
-import java.io.*;
-import java.time.LocalDate;
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Optional;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
+import javafx.fxml.FXML;
+import javafx.scene.control.*;
+import javafx.stage.FileChooser;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import java.time.LocalDate;
 import java.util.Comparator;
-import javafx.event.ActionEvent;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.fasterxml.jackson.databind.SerializationFeature;
 
 public class PrimaryController {
+
     @FXML
-    private TextField nameInput;
+    private TextField taskNameField;
+
     @FXML
-    private TextField descriptionInput;
+    private TextField taskDescriptionField;
+
     @FXML
-    private TextField priorityInput;
+    private TextField commentField;
+
     @FXML
-    private DatePicker dueDatePicker;
+    private ComboBox<String> sortComboBox;
     @FXML
-    private TextField filterInput;
+    private ChoiceBox<String> priorityChoiceBox; // Added ChoiceBox for priority
+
     @FXML
     private ListView<Task> taskListView;
     @FXML
-    private ListView<TaskHistory> taskHistoryListView;
+    private ListView<String> templateListView; // ListView to display template names
     @FXML
-    private TextField commentInput;
-    @FXML
-    private HBox notificationArea; // Reference to the notification area
-    @FXML
-    private Label notificationLabel; // Reference to the notification label
+    private ListView<String> commentsListView;
 
-    private final List<Task> tasks = new ArrayList<>();
-    private final List<TaskHistory> taskHistoryList = new ArrayList<>();
-    private Task selectedTask;
-    private boolean isEditing = false;
-    private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
-    private boolean ascending = true; // Track sorting direction
-    private String currentSortType = "dueDate"; // Track the current sort type
+    private ObservableList<String> templateNames;
+
+    private ObservableList<Task> tasks;
+    @FXML
+    private TextField editCommentInput;
 
     @FXML
-    public void initialize() {
-        loadTasks();
-        loadTaskHistory();
-        taskListView.getItems().clear();
+    private DatePicker dueDatePicker;
+    @FXML
+    private TextArea notificationArea;
 
-        // Show the welcome notification
-        notificationLabel.setText("Welcome to the Task Manager!");
-        showNotification("Welcome to To-Do Manager!");
+
+    private ObjectMapper createObjectMapper() {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new JavaTimeModule());
+        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS); // Ensures that dates are serialized in a human-readable format
+        return mapper;
     }
 
     @FXML
-    public void addTask() {
-        String name = nameInput.getText();
-        String description = descriptionInput.getText();
-        String priorityString = priorityInput.getText(); // Changed to priorityString
-        LocalDate dueDate = dueDatePicker.getValue();
-
-        // Validate input
-        if (dueDate == null) {
-            System.out.println("Please select a valid due date.");
-            return;
-        }
-
-        Task.Priority priority; // Declare priority
-        try {
-            priority = Task.Priority.valueOf(priorityString.toUpperCase()); // Convert input to Priority enum
-        } catch (IllegalArgumentException e) {
-            System.out.println("Invalid priority value. Please use a valid priority.");
-            return;
-        }
-
-        // Handle editing or creating a new task
-        if (isEditing) {
-            updateSelectedTask(name, description, priority, dueDate);
-        } else {
-            createNewTask(name, description, priority, dueDate);
-        }
-
-        clearInputs();
-        taskListView.getSelectionModel().clearSelection();
-        saveTasks(); // Save tasks after adding or editing
-    }
-
-    @FXML
-    public void deleteTask() {
-        Task selectedTask = taskListView.getSelectionModel().getSelectedItem();
-        if (selectedTask != null) {
-            addToTaskHistory(selectedTask, null);
-            tasks.remove(selectedTask);
-            updateTaskListView(); // Update the ListView
-            saveTasks();
-            saveTaskHistory();
-        }
-    }
-
-    @FXML
-    public void editTask() {
-        selectedTask = taskListView.getSelectionModel().getSelectedItem();
-        if (selectedTask != null) {
-            populateInputFields(selectedTask);
-            isEditing = true;
-        }
-    }
-
-    @FXML
-    public void addCommentToTask() {
-        String comment = commentInput.getText();
-        Task selectedTask = taskListView.getSelectionModel().getSelectedItem();
-        if (selectedTask != null && comment != null && !comment.trim().isEmpty()) {
-            selectedTask.getComments().add(comment); // Assuming getComments() returns a List<String>
-            commentInput.clear(); // Clear the comment input after adding
-            // Optionally refresh the UI or display a message
-        } else {
-            System.out.println("Please select a task and enter a comment.");
-        }
-    }
-
-    @FXML
-    public void markTaskAsCompleted() {
-        Task selectedTask = taskListView.getSelectionModel().getSelectedItem();
-        if (selectedTask != null) {
-            addToTaskHistory(selectedTask, LocalDate.now());
-            selectedTask.setCompleted(true);
-            taskListView.refresh();
-            saveTasks();
-            saveTaskHistory();
-        }
-    }
-
-    @FXML
-    public void filterTasks() {
-        String filter = filterInput.getText().toLowerCase();
-        List<Task> filteredTasks = tasks.stream()
-                .filter(task -> task.getName().toLowerCase().contains(filter) ||
-                        task.getDescription().toLowerCase().contains(filter) ||
-                        task.getPriority().toString().toLowerCase().contains(filter)) // Change toString() for filtering
-                .collect(Collectors.toList());
-
-        taskListView.getItems().clear();
-        taskListView.getItems().addAll(filteredTasks);
-    }
-
-    @FXML
-    public void toggleSortOrder() {
-        ascending = !ascending; // Toggle sort order
-        if (currentSortType.equals("dueDate")) {
-            sortTasksByDueDate();
-        } else {
-            sortByPriority();
-        }
-    }
-
-    @FXML
-    public void switchSortType() {
-        currentSortType = currentSortType.equals("dueDate") ? "priority" : "dueDate";
-        toggleSortOrder(); // Apply sorting with the new sort type
-    }
-
-    public void sortTasksByDueDate() {
-        tasks.sort((task1, task2) -> {
-            if (task1.getDueDate() == null && task2.getDueDate() == null) {
-                return 0; // Both are null, considered equal
-            }
-            if (task1.getDueDate() == null) {
-                return ascending ? 1 : -1; // Nulls are sorted last
-            }
-            if (task2.getDueDate() == null) {
-                return ascending ? -1 : 1; // Nulls are sorted last
-            }
-            return ascending ? task1.getDueDate().compareTo(task2.getDueDate())
-                    : task2.getDueDate().compareTo(task1.getDueDate());
+    private void initialize() {
+        // Initialize the tasks ObservableList and ListView
+        tasks = FXCollections.observableArrayList();
+        taskListView.setItems(tasks);
+        taskListView.getSelectionModel().selectedItemProperty().addListener((obs, oldSelection, newSelection) -> {
+            updateCommentsListView(newSelection);
         });
-        updateTaskListView(); // Refresh the ListView to show sorted tasks
-    }
+        // Add listener to update comments when a new task is selected
+        taskListView.getSelectionModel().selectedItemProperty().addListener((obs, oldTask, newTask) -> {
+            updateCommentsListView(newTask);
+        });
+        // Initialize sort options if needed
+        sortComboBox.setItems(FXCollections.observableArrayList("Sort by Due Date", "Sort by Priority", "Sort by Name"));
 
-    public void sortByPriority() {
-        tasks.sort(Comparator.comparing(Task::getPriority, Comparator.nullsLast(Comparator.naturalOrder())));
-        if (!ascending) {
-            // If not ascending, reverse the list
-            List<Task> reversedTasks = new ArrayList<>(tasks);
-            tasks.clear();
-            for (int i = reversedTasks.size() - 1; i >= 0; i--) {
-                tasks.add(reversedTasks.get(i));
-            }
-        }
-        updateTaskListView(); // Update the ListView after sorting
-    }
+        // Initialize ChoiceBox for priorities
+        priorityChoiceBox.setItems(FXCollections.observableArrayList(
+                "Low", "Medium Low", "Medium", "Medium High", "High"
+        ));
+        priorityChoiceBox.setValue("Medium"); // Set a default value if needed
 
-    @FXML
-    public void backupTasks() {
-        DirectoryChooser directoryChooser = new DirectoryChooser();
-        directoryChooser.setTitle("Select Backup Directory");
-        File selectedDirectory = directoryChooser.showDialog(null);
+        // Initialize ComboBox for sorting options
+        sortComboBox.setItems(FXCollections.observableArrayList(
+                "Sort by Due Date", "Sort by Priority", "Sort by Name"
+        ));
+        sortComboBox.setValue("Sort by Name"); // Set a default sorting option
 
-        if (selectedDirectory != null) {
-            File backupFile = new File(selectedDirectory, "tasks_backup.json");
-            writeTasksToFile(backupFile);
-        }
+        // Load template names from the 'templates' directory on startup
+        templateNames = FXCollections.observableArrayList();
+        loadTemplateNames();
+        templateListView.setItems(templateNames);
     }
 
     @FXML
-    public void restoreTasks() {
-        FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle("Select Backup File");
-        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("JSON Files", "*.json"));
-        File selectedFile = fileChooser.showOpenDialog(null);
+    private void addTask() {
+        String name = taskNameField.getText();
+        String description = taskDescriptionField.getText();
+        LocalDate dueDate = dueDatePicker.getValue();
+        String selectedPriority = priorityChoiceBox.getValue();
+        Task.Priority priority = Task.Priority.fromString(selectedPriority);
 
-        if (selectedFile != null) {
-            readTasksFromFile(selectedFile);
+        if (name.isEmpty() || description.isEmpty() || dueDate == null || priority == null) {
+            showNotification("All fields are required to add a task.");
+            return;
         }
-    }
 
-    @FXML
-    public void exportTasks() {
-        FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle("Export Tasks");
-        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("CSV Files", "*.csv"));
-
-        File selectedFile = fileChooser.showSaveDialog(null);
-        if (selectedFile != null) {
-            try (BufferedWriter writer = new BufferedWriter(new FileWriter(selectedFile))) {
-                writer.write("Name,Description,Priority,Due Date,Completed\n");
-                for (Task task : tasks) {
-                    writer.write(String.format("%s,%s,%s,%s,%s\n",
-                            task.getName(),
-                            task.getDescription(),
-                            task.getPriority(),
-                            task.getDueDate() != null ? task.getDueDate().toString() : "",
-                            task.isCompleted() ? "Yes" : "No"));
-                }
-                System.out.println("Tasks exported successfully.");
-            } catch (IOException e) {
-                System.err.println("Failed to export tasks: " + e.getMessage());
-            }
-        }
-    }
-
-    @FXML
-    public void importTasks() {
-        FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle("Import Tasks");
-        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("CSV Files", "*.csv"));
-
-        File selectedFile = fileChooser.showOpenDialog(null);
-        if (selectedFile != null) {
-            try (BufferedReader reader = new BufferedReader(new FileReader(selectedFile))) {
-                String line;
-                reader.readLine(); // Skip header
-                while ((line = reader.readLine()) != null) {
-                    String[] data = line.split(",");
-                    Task task = new Task();
-                    task.setName(data[0]);
-                    task.setDescription(data[1]);
-                    task.setPriority(Task.Priority.valueOf(data[2].toUpperCase())); // Convert String to Priority
-                    task.setDueDate(LocalDate.parse(data[3]));
-                    task.setCompleted(data[4].equalsIgnoreCase("Yes"));
-
-                    tasks.add(task);
-                    taskListView.getItems().add(task);
-                }
-                System.out.println("Tasks imported successfully.");
-            } catch (IOException e) {
-                System.err.println("Failed to import tasks: " + e.getMessage());
-            } catch (IllegalArgumentException e) {
-                System.err.println("Invalid priority value in imported data: " + e.getMessage());
-            }
-        }
-    }
-
-    private void createNewTask(String name, String description, Task.Priority priority, LocalDate dueDate) {
-        Task newTask = new Task();
-        newTask.setName(name); // Set the name
-        newTask.setDescription(description); // Set the description
-        newTask.setPriority(priority); // Set the priority
-        newTask.setDueDate(dueDate); // Set the due date
+        Task newTask = new Task(name, description, priority, dueDate, false);
         tasks.add(newTask);
-        taskListView.getItems().add(newTask);
         showNotification("Task added successfully.");
-    }
 
-    private void updateSelectedTask(String name, String description, Task.Priority priority, LocalDate dueDate) {
-        selectedTask.setName(name);
-        selectedTask.setDescription(description);
-        selectedTask.setPriority(priority);
-        selectedTask.setDueDate(dueDate);
-        taskListView.refresh();
-        showNotification("Task updated successfully.");
-        isEditing = false;
-    }
-
-    private void populateInputFields(Task task) {
-        nameInput.setText(task.getName());
-        descriptionInput.setText(task.getDescription());
-        priorityInput.setText(task.getPriority().toString());
-        dueDatePicker.setValue(task.getDueDate());
-    }
-
-    private void clearInputs() {
-        nameInput.clear();
-        descriptionInput.clear();
-        priorityInput.clear();
+        // Clear fields after successful addition
+        taskNameField.clear();
+        taskDescriptionField.clear();
         dueDatePicker.setValue(null);
+        priorityChoiceBox.setValue(null);
     }
 
-    private void showNotification(String message) {
-        notificationLabel.setText(message);
-        notificationArea.setVisible(true);
-        PauseTransition pause = new PauseTransition(Duration.seconds(3));
-        pause.setOnFinished(event -> notificationArea.setVisible(false));
-        pause.play();
-    }
 
-    private void writeTasksToFile(File file) {
-        try {
-            objectMapper.writeValue(file, tasks);
-            System.out.println("Tasks backed up successfully.");
-        } catch (IOException e) {
-            System.err.println("Failed to backup tasks: " + e.getMessage());
+    @FXML
+    private void editTask() {
+        Task selectedTask = taskListView.getSelectionModel().getSelectedItem();
+        if (selectedTask != null) {
+            selectedTask.setName(taskNameField.getText());
+            selectedTask.setDescription(taskDescriptionField.getText());
+            showNotification("Task edited successfully.");
+            updateTaskListView();
+        } else {
+            showNotification("No task selected for editing.");
         }
     }
 
-    private void readTasksFromFile(File file) {
-        try {
-            Task[] loadedTasks = objectMapper.readValue(file, Task[].class);
-            tasks.clear();
-            for (Task task : loadedTasks) {
-                tasks.add(task);
-                taskListView.getItems().add(task);
+    @FXML
+    private void deleteTask() {
+        Task selectedTask = taskListView.getSelectionModel().getSelectedItem();
+        if (selectedTask != null) {
+            tasks.remove(selectedTask);
+            showNotification("Task deleted successfully.");
+            updateTaskListView();
+        } else {
+            showNotification("No task selected for deletion.");
+        }
+    }
+
+    @FXML
+    private void markTaskAsCompleted() {
+        Task selectedTask = taskListView.getSelectionModel().getSelectedItem();
+        if (selectedTask != null) {
+            selectedTask.setCompleted(true);
+            showNotification("Task marked as completed.");
+            updateTaskListView();
+        } else {
+            showNotification("No task selected to mark as completed.");
+        }
+    }
+
+    @FXML
+    private void handleAddComment() {
+        String comment = commentField.getText();
+        Task selectedTask = taskListView.getSelectionModel().getSelectedItem();
+
+        if (selectedTask != null && comment != null && !comment.trim().isEmpty()) {
+            selectedTask.addComment(comment);
+            updateCommentsListView(selectedTask); // Refresh comments after adding
+            showNotification("Comment added to task.");
+            commentField.clear(); // Clear the comment field after adding
+        } else {
+            showNotification("Please select a task and enter a comment.");
+        }
+    }
+
+    @FXML
+    private void handleEditComment() {
+        String newComment = editCommentInput.getText();
+        Task selectedTask = taskListView.getSelectionModel().getSelectedItem();
+        String selectedComment = commentsListView.getSelectionModel().getSelectedItem();
+
+        if (selectedTask != null && selectedComment != null && newComment != null && !newComment.trim().isEmpty()) {
+            List<String> comments = selectedTask.getComments();
+            int commentIndex = comments.indexOf(selectedComment);
+
+            if (commentIndex != -1) {
+                comments.set(commentIndex, newComment);
+                updateCommentsListView(selectedTask);
+                showNotification("Comment edited successfully.");
+                editCommentInput.clear();
+            } else {
+                showNotification("Selected comment could not be found.");
             }
-            System.out.println("Tasks restored successfully.");
-        } catch (IOException e) {
-            System.err.println("Failed to restore tasks: " + e.getMessage());
+        } else {
+            showNotification("Please select a comment to edit and enter a new value.");
         }
     }
+    private void updateCommentsListView(Task task) {
+        if (task != null && commentsListView != null) {
+            ObservableList<String> comments = FXCollections.observableArrayList(task.getComments());
+            commentsListView.setItems(comments);
+        }
+    }
+
+
     @FXML
     private void saveTasks() {
-        // Implement the logic to save tasks to a file
         try {
-            File file = new File("tasks.json"); // You may want to choose a specific path or use a dialog
-            objectMapper.writeValue(file, tasks);
-            System.out.println("Tasks saved successfully.");
+            // Define the path to save tasks.json
+            Path taskFilePath = Paths.get("src/main/resources/tasks.json");
+            ObjectMapper mapper = new ObjectMapper();
+            mapper.registerModule(new JavaTimeModule());
+            mapper.writerWithDefaultPrettyPrinter().writeValue(taskFilePath.toFile(), tasks);
+            showNotification("Tasks saved successfully to tasks.json.");
         } catch (IOException e) {
-            System.err.println("Failed to save tasks: " + e.getMessage());
+            showNotification("Failed to save tasks: " + e.getMessage());
+        }
+    }
+    @FXML
+    private void saveTemplate() {
+        // Prompt user to enter a template name
+        TextInputDialog dialog = new TextInputDialog("TemplateName");
+        dialog.setTitle("Template Name");
+        dialog.setHeaderText("Save current tasks as a template");
+        dialog.setContentText("Please enter the template name:");
+
+        Optional<String> result = dialog.showAndWait();
+        result.ifPresent(templateName -> {
+            if (!templateName.trim().isEmpty()) {
+                saveTemplateToResources(templateName.trim());
+            } else {
+                showNotification("Template name cannot be empty.");
+            }
+        });
+    }
+
+    private void saveTemplateToResources(String templateName) {
+        try {
+            // Define the path for the templates folder within resources
+            Path templateFolderPath = Paths.get("src/main/resources/templates/");
+            if (!Files.exists(templateFolderPath)) {
+                Files.createDirectories(templateFolderPath);
+            }
+
+            // Create the file path using the template name
+            Path templateFilePath = templateFolderPath.resolve(templateName + ".json");
+
+            ObjectMapper mapper = new ObjectMapper();
+            mapper.registerModule(new JavaTimeModule());
+            mapper.writerWithDefaultPrettyPrinter().writeValue(templateFilePath.toFile(), tasks);
+            showNotification("Template '" + templateName + "' saved to templates folder.");
+        } catch (IOException e) {
+            showNotification("Failed to save template: " + e.getMessage());
+        }
+    }
+    private void loadTemplate(String templateName) {
+        try {
+            File file = new File("src/main/resources/templates/" + templateName + ".json");
+            ObjectMapper mapper = createObjectMapper(); // Use the configured ObjectMapper
+            List<Task> loadedTasks = mapper.readValue(file, new TypeReference<List<Task>>() {});
+            tasks.setAll(loadedTasks);
+            showNotification("Template loaded successfully.");
+        } catch (IOException e) {
+            showNotification("Failed to load template: " + e.getMessage());
+        }
+    }
+
+
+    private void saveTemplate(String templateName) {
+        try {
+            File file = new File("src/main/resources/templates/" + templateName + ".json");
+            ObjectMapper mapper = createObjectMapper(); // Use the configured ObjectMapper
+            mapper.writerWithDefaultPrettyPrinter().writeValue(file, tasks);
+            showNotification("Template saved successfully.");
+        } catch (IOException e) {
+            showNotification("Failed to save template: " + e.getMessage());
+        }
+    }
+
+
+
+
+    @FXML
+    private void convertToTemplate() {
+        // Placeholder for loading tasks logic
+        showNotification("Tasks loaded successfully.");
+    }
+
+    @FXML
+    private void backupTasks() {
+        try {
+            // Define the path for the backup file
+            File backupFile = new File("tasks_backup.json");
+
+            // Create ObjectMapper and configure it for pretty printing and LocalDate handling
+            ObjectMapper mapper = new ObjectMapper();
+            mapper.registerModule(new JavaTimeModule());
+            mapper.writerWithDefaultPrettyPrinter().writeValue(backupFile, tasks);
+
+            showNotification("Tasks backed up successfully to tasks_backup.json.");
+        } catch (IOException e) {
+            showNotification("Failed to back up tasks: " + e.getMessage());
         }
     }
 
     @FXML
-    private void loadTasks() {
-        File file = new File("tasks.json");
-        if (file.exists()) {
-            readTasksFromFile(file);
-        } else {
-            System.out.println("No saved tasks found.");
+    private void restoreBackup() {
+        try {
+            // Define the path for the backup file
+            File backupFile = new File("tasks_backup.json");
+
+            if (backupFile.exists()) {
+                // Create ObjectMapper and configure it for LocalDate handling
+                ObjectMapper mapper = new ObjectMapper();
+                mapper.registerModule(new JavaTimeModule());
+
+                // Read the JSON data and deserialize it into a list of tasks
+                List<Task> restoredTasks = mapper.readValue(
+                        backupFile,
+                        new TypeReference<List<Task>>() {}
+                );
+
+                // Update the tasks list and refresh the ListView
+                tasks.setAll(restoredTasks);
+                taskListView.refresh();
+                showNotification("Tasks restored successfully from tasks_backup.json.");
+            } else {
+                showNotification("Backup file not found. Restore operation canceled.");
+            }
+        } catch (IOException e) {
+            showNotification("Failed to restore tasks: " + e.getMessage());
         }
     }
 
-    private void loadTaskHistory() {
-        // Implement the logic to load task history from a file or database if necessary.
+    // Method to import tasks
+    @FXML
+    private void importTasks() {
+        try {
+            FileChooser fileChooser = new FileChooser();
+            fileChooser.setTitle("Import Tasks");
+            fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("JSON files (*.json)", "*.json"));
+            File file = fileChooser.showOpenDialog(null);
+            if (file != null) {
+                ObjectMapper mapper = new ObjectMapper();
+                mapper.registerModule(new JavaTimeModule());
+                List<Task> importedTasks = mapper.readValue(file, new TypeReference<List<Task>>() {});
+                tasks.setAll(importedTasks);
+                taskListView.setItems(tasks);
+                showNotification("Tasks imported successfully.");
+            } else {
+                showNotification("Import canceled.");
+            }
+        } catch (IOException e) {
+            showNotification("Failed to import tasks: " + e.getMessage());
+        }
     }
 
-    private void addToTaskHistory(Task task, LocalDate completedDate) {
-        TaskHistory taskHistory = new TaskHistory();
-        taskHistoryList.add(taskHistory);
-        taskHistoryListView.getItems().add(taskHistory);
+    // Method to export tasks
+    @FXML
+    private void exportTasks() {
+        try {
+            FileChooser fileChooser = new FileChooser();
+            fileChooser.setTitle("Export Tasks");
+            fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("JSON files (*.json)", "*.json"));
+            File file = fileChooser.showSaveDialog(null);
+            if (file != null) {
+                ObjectMapper mapper = new ObjectMapper();
+                mapper.registerModule(new JavaTimeModule());
+                mapper.writerWithDefaultPrettyPrinter().writeValue(file, tasks);
+                showNotification("Tasks exported successfully.");
+            } else {
+                showNotification("Export canceled.");
+            }
+        } catch (IOException e) {
+            showNotification("Failed to export tasks: " + e.getMessage());
+        }
     }
 
-    private void saveTaskHistory() {
-        // Implement the logic to save task history to a file or database if necessary.
+    @FXML
+    private void handleSortSelection() {
+        String selectedOption = sortComboBox.getValue();
+
+        if (selectedOption != null) {
+            switch (selectedOption) {
+                case "Sort by Due Date":
+                    tasks.sort(Comparator.comparing(Task::getDueDate));
+                    showNotification("Tasks sorted by due date.");
+                    break;
+                case "Sort by Priority":
+                    tasks.sort(Comparator.comparing(Task::getPriority));
+                    showNotification("Tasks sorted by priority.");
+                    break;
+                case "Sort by Name":
+                    tasks.sort(Comparator.comparing(Task::getName));
+                    showNotification("Tasks sorted by name.");
+                    break;
+                default:
+                    showNotification("Please select a valid sort option.");
+            }
+            updateTaskListView();
+        }
     }
 
+    // Template section //
+    private void loadTemplateNames() {
+        try {
+            File templateDir = new File("src/main/resources/templates");
+            if (!templateDir.exists() || !templateDir.isDirectory()) {
+                showNotification("Template directory does not exist.");
+                return;
+            }
+
+            File[] templateFiles = templateDir.listFiles((dir, name) -> name.endsWith(".json"));
+            if (templateFiles != null) {
+                templateNames.clear();
+                for (File file : templateFiles) {
+                    templateNames.add(file.getName().replace(".json", ""));
+                }
+            }
+        } catch (Exception e) {
+            showNotification("Failed to load template names: " + e.getMessage());
+        }
+    }
+
+
+    @FXML
+    private void loadTemplate() {
+        String selectedTemplate = templateListView.getSelectionModel().getSelectedItem();
+        if (selectedTemplate == null) {
+            showNotification("Please select a template to load.");
+            return;
+        }
+
+        File templateFile = new File("src/main/resources/templates/" + selectedTemplate + ".json");
+        if (templateFile.exists()) {
+            ObjectMapper objectMapper = new ObjectMapper();
+            try {
+                List<Task> loadedTasks = objectMapper.readValue(templateFile, objectMapper.getTypeFactory().constructCollectionType(List.class, Task.class));
+                tasks.setAll(loadedTasks);
+                showNotification("Template '" + selectedTemplate + "' loaded successfully.");
+            } catch (IOException e) {
+                showNotification("Failed to load template: " + e.getMessage());
+            }
+        } else {
+            showNotification("Template file not found.");
+        }
+    }
+
+    // updateTaskListView
     private void updateTaskListView() {
-        taskListView.getItems().clear();
-        taskListView.getItems().addAll(tasks);
+        // Refreshes the ListView
+        taskListView.refresh();
     }
+
+    // showNotification
+    private void showNotification(String message) {
+        // Displays a message in the notification area
+        notificationArea.setText(message);
+    }
+
+
 }

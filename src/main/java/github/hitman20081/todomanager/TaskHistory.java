@@ -13,7 +13,7 @@ public class TaskHistory {
     private String description;
 
     @JsonProperty("priority")
-    private Task.Priority priority; // Changed to Task.Priority
+    private Task.Priority priority;
 
     @JsonProperty("dueDate")
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
@@ -21,10 +21,10 @@ public class TaskHistory {
 
     @JsonProperty("completedDate")
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
-    private LocalDate completedDate; // This will be null if the task was deleted
+    private LocalDate completedDate;
 
     // Default constructor for Jackson
-    public TaskHistory() {} // Ensure this is a no-arg constructor
+    public TaskHistory() {}
 
     // Constructor that accepts individual parameters
     public TaskHistory(String name, String description, Task.Priority priority, LocalDate dueDate, LocalDate completedDate) {
@@ -35,16 +35,13 @@ public class TaskHistory {
         this.completedDate = completedDate;
     }
 
-    // New constructor that accepts a Task object
+    // Constructor that accepts a Task object and a completedDate
     public TaskHistory(Task task, LocalDate completedDate) {
         this.name = task.getName();
         this.description = task.getDescription();
-        this.priority = task.getPriority(); // Ensure task.getPriority() returns Task.Priority
+        this.priority = task.getPriority();
         this.dueDate = task.getDueDate();
-        this.completedDate = completedDate; // This will be null if the task is deleted
-    }
-
-    public TaskHistory(String name, LocalDate completedDate) {
+        this.completedDate = completedDate;
     }
 
     // Getters and Setters
@@ -52,8 +49,8 @@ public class TaskHistory {
     public void setName(String name) { this.name = name; }
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
-    public Task.Priority getPriority() { return priority; } // Return Task.Priority
-    public void setPriority(Task.Priority priority) { this.priority = priority; } // Accept Task.Priority
+    public Task.Priority getPriority() { return priority; }
+    public void setPriority(Task.Priority priority) { this.priority = priority; }
     public LocalDate getDueDate() { return dueDate; }
     public void setDueDate(LocalDate dueDate) { this.dueDate = dueDate; }
     public LocalDate getCompletedDate() { return completedDate; }
